@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+
+	_ "modernc.org/sqlite"
 )
 
 type ParcelStore struct {
@@ -41,8 +43,7 @@ func (s ParcelStore) Get(number int) (Parcel, error) {
 	// реализуйте чтение строки по заданному number
 	// здесь из таблицы должна вернуться только одна строка
 
-	stmt := `SELECT number, client, status, address, created_at FROM parcel WHERE number = :number`
-	row := s.db.QueryRow(stmt, number)
+	row := s.db.QueryRow("SELECT number, client, status, address, created_at FROM parcel WHERE number = :number", sql.Named("number", number))
 	p := Parcel{}
 	//row, err := s.db.QueryRow("SELECT number, client, status, address, created_at FROM parcel WHERE number = :number", sql.Named("number", number))
 	err := row.Scan(&p.Number, &p.Client, &p.Status, &p.Address, &p.CreatedAt)
@@ -61,30 +62,25 @@ func (s ParcelStore) Get(number int) (Parcel, error) {
 func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 	// реализуйте чтение строк из таблицы parcel по заданному client
 	// здесь из таблицы может вернуться несколько строк
-	//stmt:=`SELECT number, client, status, address, created_at FROM parcel WHERE client = :client`
-	// заполните срез Parcel данными из таблицы
-	rows, err := s.db.Query("SELECT number, client, status, address, created_at FROM parcel WHERE client = :client", client)
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer rows.Close()
-
-	//срез для возвращаемых строк
 	var res []Parcel
-
-	for rows.Next() {
-		ress := Parcel{}
-		err := rows.Scan(&ress.Number, &ress.Client, &ress.Status, &ress.Address, &ress.CreatedAt)
+	row, err := s.db.Query("SELECT number, client, status, address, created_at from parcel where client = :client",
+		sql.Named("client", client))
+	if err != nil {
+		return nil, err
+	}
+	defer row.Close()
+	// заполните срез Parcel данными из таблицы
+	for row.Next() {
+		p := Parcel{}
+		err := row.Scan(&p.Number, &p.Client, &p.Status, &p.Address, &p.CreatedAt)
 		if err != nil {
-			fmt.Println(err)
+			return res, err
 		}
-		res = append(res, ress)
+		res = append(res, p)
 	}
-
-	if err = rows.Err(); err != nil {
-		fmt.Println(err)
+	if err := row.Err(); err != nil {
+		return res, err
 	}
-
 	return res, nil
 }
 
@@ -103,7 +99,9 @@ func (s ParcelStore) SetStatus(number int, status string) error {
 func (s ParcelStore) SetAddress(number int, address string) error {
 	// реализуйте обновление адреса в таблице parcel
 	// менять адрес можно только если значение статуса registered
-	_, err := s.db.Exec("UPDATE parcel SET number = :number, address = :address WHERE status = :ParcelStatusRegistered", number, address)
+	_, err := s.db.Exec("UPDATE parcel SET address = :address WHERE number = :number",
+		sql.Named("address", address),
+		sql.Named("number", number))
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -114,7 +112,9 @@ func (s ParcelStore) Delete(number int) error {
 	// реализуйте удаление строки из таблицы parcel
 	// удалять строку можно только если значение статуса registered
 
-	_, err := s.db.Exec("DELETE FROM parcel WHERE number = :number", sql.Named("number", number))
+	_, err := s.db.Exec("DELETE FROM parcel WHERE number = :number and status = :status",
+		sql.Named("number", number),
+		sql.Named("status", "registered"))
 	if err != nil {
 		fmt.Println(err)
 	}
