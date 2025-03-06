@@ -45,7 +45,7 @@ func (s ParcelStore) Get(number int) (Parcel, error) {
 
 	err := row.Scan(&p.Number, &p.Client, &p.Status, &p.Address, &p.CreatedAt)
 	if err != nil {
-		return p, err
+		return Parcel{}, err
 	}
 	// заполните объект Parcel данными из таблицы
 
@@ -95,7 +95,7 @@ func (s ParcelStore) SetAddress(number int, address string) error {
 	_, err := s.db.Exec("UPDATE parcel SET address = :address WHERE number = :number and status = :status",
 		sql.Named("address", address),
 		sql.Named("number", number),
-		sql.Named("status", "registered"))
+		sql.Named("status", ParcelStatusRegistered))
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (s ParcelStore) Delete(number int) error {
 
 	_, err := s.db.Exec("DELETE FROM parcel WHERE number = :number and status = :status",
 		sql.Named("number", number),
-		sql.Named("status", "registered"))
+		sql.Named("status", ParcelStatusRegistered))
 	if err != nil {
 		return err
 	}
